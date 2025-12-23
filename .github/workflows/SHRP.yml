@@ -1,147 +1,113 @@
-name: SHRP Builder
+name: Build SHRP Recovery
+
 on:
   workflow_dispatch:
     inputs:
       MANIFEST_URL:
-        description: 'Manifest'
+        description: 'Manifest URL'
         required: true
-        default: ''
-        type: choice
-        options:
-        - https://github.com/nitheshd30/SHRP_Manifest.git
+        default: 'https://github.com/nitheshd30/SHRP_Manifest.git'
       MANIFEST_BRANCH:
         description: 'Manifest Branch'
         required: true
-        default: ''
-        type: choice
-        options:
-        - v3_11.0
-      DEVICE_TREE:
-        description: 'Custom Recovery Tree' # Your already made Device Tree for TWRP
+        default: 'v3_11.0'
+      DEVICE_TREE_URL:
+        description: 'Device Tree URL'
         required: true
-        default: ''
-        type: choice
-        options:
-        - https://github.com/nitheshd30/SHRP_Builder.git
-        - https://github.com/end222/android_device_xiaomi_curtana-pbrp.git
-        - https://github.com/nitheshd30/OFRP-device_nothing_Spacewar.git
+        default: 'https://github.com/nitheshd30/OFRP-device_nothing_Spacewar.git'
       DEVICE_TREE_BRANCH:
-        description: 'Custom Recovery Tree Branch' # Your Device Tree Branch, make sure it's right.
+        description: 'Device Tree Branch'
         required: true
-        default: ''
-        type: choice
-        options:
-        - master
-        - main
-        - shrp
-        - fox_11.0
-        - android-10.0
+        default: 'main' # Assuming main, change if different
       DEVICE_PATH:
-        description: 'Specify your Device Path' # As is, just like your DEVICE_PATH in your BoardConfig.mk
+        description: 'Device Path'
         required: true
-        default: ''
-        type: choice
-        options:
-        - device/nothing/Spacewar
-        - device/infinix/X6812
+        default: 'device/nothing/Spacewar'
       DEVICE_NAME:
-        description: 'Specify your Device Codename' # As is, just like your PRODUCT_DEVICE in your device tree.
+        description: 'Device Name/Codename'
         required: true
-        default: ''
-        type: choice
-        options:
-        - Spacewar
-        - X6812
+        default: 'Spacewar'
       MAKEFILE_NAME:
-        description: 'Specify your Makefile Name' # Look for twrp_ or omni_codename.mk, just remove the .mk
+        description: 'Makefile Name (without .mk)'
         required: true
-        default: ''
-        type: choice
-        options:
-        - twrp_X6812
-        - omni_Infinix-X6812
-        - twrp_Spacewar
+        default: 'twrp_Spacewar' 
       BUILD_TARGET:
-        description: 'Specify your Build Target' # Pick among boot, recovery and vendor_boot
+        description: 'Build Target'
         required: true
-        default: 'boot'
-        type: choice
-        options:
-        - boot
-        - recovery
-        - vendorboot
-      FILE_TO_CHECK:
-        description: 'Specify which libs to check' # Use it know what kind of dependencies your missing for decryption.
-        required: false
-        default: 'system/bin/qseecomd' # Mainly for QCOM. but can also work in mtk... I guess.
+        default: 'recoveryimage'
 
 jobs:
   build:
-    if: github.event.repository.owner.id == github.event.sender.id
-    runs-on: ubuntu-latest
-    steps:
-    - name: Check Out
-      uses: actions/checkout@v2.5.0
-      
-    - name: Display Inputs
-      run: |
-        echo "Displaying variables/inputs."
-        echo "Manifest URL: ${{ github.event.inputs.MANIFEST_URL }}"
-        echo "Manifest Branch: ${{ github.event.inputs.MANIFEST_BRANCH }}"
-        echo "Device Tree: ${{ github.event.inputs.DEVICE_TREE }}"
-        echo "Device Branch: ${{ github.event.inputs.DEVICE_TREE_BRANCH }}"
-        echo "Device Path: ${{ github.event.inputs.DEVICE_PATH }}"
-        echo "Device Name: ${{ github.event.inputs.DEVICE_NAME }}"
-        echo "Makefile Name: ${{ github.event.inputs.MAKEFILE_NAME }}"
-        echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}image"
-    - name: Cleanup
-      uses: rokibhasansagar/slimhub_actions@main
-      
-    - name: Set Swap Space
-      uses: pierotofy/set-swap-space@master
-      with:
-        swap-size-gb: 12
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: write
 
-    - name: Prepare the Environment
-      run: |
-        sudo apt update
-        sudo apt -y upgrade
-        sudo apt -y install gperf gcc-multilib gcc-10-multilib g++-multilib g++-10-multilib libc6-dev lib32ncurses5-dev python3 x11proto-core-dev libx11-dev tree lib32z-dev libgl1-mesa-dev libxml2-utils xsltproc bc ccache lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev libxml2 lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma ncftp qemu-user-static libstdc++-10-dev python
-        
-    - name: Install OpenJDK
-      uses: actions/setup-java@v3
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Cleanup Disk Space
+      uses: rokibhasan03/custom_workflows/free_disk_space@main
       with:
-        distribution: 'zulu'
-        java-version: '8'
-        
-    - name: Install Git-Repo
+        android: true
+        dotnet: true
+        haskell: true
+        large_packages: true
+        docker_images: true
+        swap_storage: true
+
+    - name: Install Build Dependencies
       run: |
-        git config --global advice.detachedHead false
-        git clone https://android.googlesource.com/tools/repo -b v2.29 ~/bin
+        sudo apt-get update
+        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+
+    - name: Install Repo Tool
+      run: |
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
-        sudo ln -sf ~/bin/repo /usr/bin/repo
+        echo "$HOME/bin" >> $GITHUB_PATH
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+
     - name: Initialize Repo
       run: |
         mkdir workspace
         cd workspace
-        echo "workdir=$(pwd)" >> $GITHUB_OUTPUT
-        git config --global user.name "nitheshd30"
-        git config --global user.email "nsamsung3040@gmail.com"
-        repo init --depth=1 -u ${{ github.event.inputs.MANIFEST_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
-      id: pwd
-        
+        repo init -u ${{ inputs.MANIFEST_URL }} -b ${{ inputs.MANIFEST_BRANCH }} --depth=1
+
     - name: Repo Sync
       run: |
-        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
-      working-directory: workspace
-      
+        cd workspace
+        repo sync -j$(nproc --all) --force-sync
+
     - name: Clone Device Tree
       run: |
-        git clone ${{ github.event.inputs.DEVICE_TREE }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
-      working-directory: ${{ steps.pwd.outputs.workdir }}
+        cd workspace
+        git clone ${{ inputs.DEVICE_TREE_URL }} -b ${{ inputs.DEVICE_TREE_BRANCH }} ${{ inputs.DEVICE_PATH }}
 
-    - name: Check Build Tree
-      uses: haya14busa/action-cond@v1
+    - name: Set Build Environment
+      run: |
+        cd workspace
+        export ALLOW_MISSING_DEPENDENCIES=true
+        source build/envsetup.sh
+        lunch ${{ inputs.MAKEFILE_NAME }}-eng
+        echo "Build environment set."
+
+    - name: Build Recovery
+      run: |
+        cd workspace
+        source build/envsetup.sh
+        lunch ${{ inputs.MAKEFILE_NAME }}-eng
+        mka ${{ inputs.BUILD_TARGET }}
+
+    - name: Upload Recovery Image
+      uses: actions/upload-artifact@v4
+      with:
+        name: SHRP-Recovery-${{ inputs.DEVICE_NAME }}
+        path: |
+          workspace/out/target/product/${{ inputs.DEVICE_NAME }}/*.img
+          workspace/out/target/product/${{ inputs.DEVICE_NAME }}/*.zip
       id: buildtree
       with:
         cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-11' || github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1' }}
