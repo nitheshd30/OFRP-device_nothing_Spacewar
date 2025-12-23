@@ -1,0 +1,20 @@
+#!/sbin/bash
+bootloader_version=$(getprop ro.bootloader)
+
+if [ -z "$bootloader_version" ]; then
+    echo "Error: Unable to retrieve bootloader version."
+  echo "Please report on Telegram @a52sxq_uefi"
+    exit 1
+fi
+
+char_9=$(echo "$bootloader_version" | cut -c9)
+
+if echo "$char_9" | grep -qE '^[0-9]$'; then
+. common
+fixgpt
+echo "done!"
+else
+    echo "BIT 10 or higher detected. Windows installation cannot proceed."
+  echo "Please do not try other methods to install either."
+    exit 1
+fi

@@ -1,0 +1,25 @@
+#!/sbin/bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+fix-gpt.expect
+
+if [ $? -eq 0 ]; then
+  echo ""
+  echo ""
+  echo -e "${GREEN}-------------------------------------------${NC}"
+  echo ""
+  echo -e "${GREEN}Backup partition table loaded successfully.${NC}"
+  echo ""
+  echo -e "${GREEN}-------------------------------------------${NC}"
+else
+  echo ""
+  echo ""
+  echo -e "${RED}---------------------------------------------${NC}"
+  echo ""
+  echo -e "${RED}Something went wrong. Send the error output to support group.${NC}"
+  echo ""
+  echo -e "${RED}---------------------------------------------${NC}"
+fi

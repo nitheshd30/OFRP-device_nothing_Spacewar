@@ -1,0 +1,3 @@
+#!/sbin/bash
+mkfs.ntfs -f /dev/block/by-name/win -L WINA52S
+echo "done!"

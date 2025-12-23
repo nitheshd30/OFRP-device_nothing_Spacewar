@@ -1,0 +1,27 @@
+#!/sbin/expect -f
+
+# Start gdisk
+spawn gdisk /dev/block/sda
+
+# Expect the initial prompt and send 'r' for recovery
+expect "Command (? for help):"
+send "r\r"
+
+# Expect the recovery prompt and send 'c' to load the backup partition table
+expect "Recovery/transformation command (? for help):"
+send "c\r"
+
+# Expect a confirmation prompt and send 'y' to proceed
+expect "GPT form and haven't yet saved the GPT! Proceed? (Y/N):"
+send "y\r"
+
+# Expect the recovery prompt and send 'w' to save changes
+expect "Recovery/transformation command (? for help):"
+send "w\r"
+
+# Expect a confirmation prompt and send 'y' to save changes
+expect "Do you want to proceed? (Y/N):"
+send "y\r"
+
+# Expect the end of the program and interact
+expect eof

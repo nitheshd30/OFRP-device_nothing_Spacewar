@@ -1,0 +1,3 @@
+#!/sbin/bash
+mkfs.fat -F32 -s1 /dev/block/by-name/esp -n ESPA52S
+echo "done!"
