@@ -18,19 +18,19 @@ on:
       DEVICE_TREE_BRANCH:
         description: 'Device Tree Branch'
         required: true
-        default: 'main' # Assuming main, change if different
+        default: 'main'
       DEVICE_PATH:
         description: 'Device Path'
         required: true
         default: 'device/nothing/Spacewar'
       DEVICE_NAME:
-        description: 'Device Name/Codename'
+        description: 'Device Name (e.g. Spacewar)'
         required: true
         default: 'Spacewar'
       MAKEFILE_NAME:
         description: 'Makefile Name (without .mk)'
         required: true
-        default: 'twrp_Spacewar' 
+        default: 'twrp_Spacewar'
       BUILD_TARGET:
         description: 'Build Target'
         required: true
@@ -41,27 +41,25 @@ jobs:
     runs-on: ubuntu-20.04
     permissions:
       contents: write
-
+    
     steps:
-    - name: Checkout
+    - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Cleanup Disk Space
-      uses: rokibhasan03/custom_workflows/free_disk_space@main
-      with:
-        android: true
-        dotnet: true
-        haskell: true
-        large_packages: true
-        docker_images: true
-        swap_storage: true
+    - name: Free Disk Space (Manual)
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo apt-get clean
+        echo "Disk space cleared."
 
-    - name: Install Build Dependencies
+    - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
 
-    - name: Install Repo Tool
+    - name: Setup Repo Tool
       run: |
         mkdir -p ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
@@ -69,8 +67,9 @@ jobs:
         echo "$HOME/bin" >> $GITHUB_PATH
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
+        git config --global color.ui false
 
-    - name: Initialize Repo
+    - name: Initialize Manifest
       run: |
         mkdir workspace
         cd workspace
@@ -86,62 +85,21 @@ jobs:
         cd workspace
         git clone ${{ inputs.DEVICE_TREE_URL }} -b ${{ inputs.DEVICE_TREE_BRANCH }} ${{ inputs.DEVICE_PATH }}
 
-    - name: Set Build Environment
+    - name: Build Recovery
       run: |
         cd workspace
         export ALLOW_MISSING_DEPENDENCIES=true
         source build/envsetup.sh
         lunch ${{ inputs.MAKEFILE_NAME }}-eng
-        echo "Build environment set."
-
-    - name: Build Recovery
-      run: |
-        cd workspace
-        source build/envsetup.sh
-        lunch ${{ inputs.MAKEFILE_NAME }}-eng
         mka ${{ inputs.BUILD_TARGET }}
 
-    - name: Upload Recovery Image
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: SHRP-Recovery-${{ inputs.DEVICE_NAME }}
         path: |
           workspace/out/target/product/${{ inputs.DEVICE_NAME }}/*.img
           workspace/out/target/product/${{ inputs.DEVICE_NAME }}/*.zip
-      id: buildtree
-      with:
-        cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-11' || github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1' }}
-        if_true: twrp
-        if_false: omni
-
-    - name: Sync Dependencies
-      run: |
-        bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
-        repo sync -j$(nproc --all)
-      working-directory: ${{ steps.pwd.outputs.workdir }}
-      continue-on-error: true
-
-    - name: Building Recovery
-      run: |
-        source build/envsetup.sh
-        export ALLOW_MISSING_DEPENDENCIES=true
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
-        echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
-      working-directory: ${{ steps.pwd.outputs.workdir }}
-
-    - name: Set Properties # Output will be use in final name of recovery.
-      id: props
-      run: |
-        echo "date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
-        
-    - name: Renaming into TWRP
-      run: |
-        cd out/target/product/${{ github.event.inputs.DEVICE_NAME }}
-        mv ${{ github.event.inputs.BUILD_TARGET }}.img ${{ github.event.inputs.MANIFEST_BRANCH }}-SHRP-${{ github.event.inputs.DEVICE_NAME }}-${{ steps.props.outputs.date }}.img
-        echo "Done renaming into ${{ github.event.inputs.MANIFEST_BRANCH }}-SHRP-${{ github.event.inputs.DEVICE_NAME }}-${{ steps.props.outputs.date }}.img"
-      working-directory: ${{ steps.pwd.outputs.workdir }}
-      
-    - name: Upload to Release
       uses: ncipollo/release-action@v1.11.1
       with:
         artifacts: workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ github.event.inputs.MANIFEST_BRANCH }}*.img
