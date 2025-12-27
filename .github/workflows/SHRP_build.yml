@@ -17,11 +17,11 @@ on:
       DEVICE_TREE:
         description: 'Custom Recovery Tree' # Your already made Device Tree for TWRP
         required: true
-        default: 'https://github.com/Gamer09CF/SHRP-device_nothing_Spacewar.git' 
+        default: 'https://github.com/nitheshd30/OFRP-device_nothing_Spacewar.git' 
       DEVICE_TREE_BRANCH:
         description: 'Custom Recovery Tree Branch' # Your Device Tree Branch, make sure it's right.
         required: true
-        default: 'main'
+        default: 'SHRP'
       DEVICE_PATH:
         description: 'Specify your Device Path' # As is, just like your DEVICE_PATH in your BoardConfig.mk
         required: true
@@ -126,7 +126,7 @@ jobs:
        cd android-recovery
        git clone https://github.com/Spacewar-dev/android_kernel_nothing_sm7325.git ./kernel/nothing/sm7325 -b 14.0
        git clone https://github.com/TheMuppets/proprietary_vendor_nothing_Spacewar.git ./vendor/nothing/Spacewar -b lineage-20
-       git clone https://github.com/Gamer09CF/SHRP-device_nothing_Spacewar.git ./device/nothing/Spacewar
+       git clone https://github.com/nitheshd30/OFRP-device_nothing_Spacewar.git ./device/nothing/Spacewar -b SHRP
        sudo chmod -R 777 ./device/nothing/Spacewar/
        echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
