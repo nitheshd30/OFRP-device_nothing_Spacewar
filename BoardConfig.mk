@@ -222,3 +222,7 @@ SHRP_OTG := /usb_otg
 # Flashlight: (0 = disable, 1 = enable)
 # Default (if not set): 0
 SHRP_FLASH := 1
+
+# SHRP Dark mode, use this flag to have dark theme set by default
+# Default (if not set) is not using DARK mode
+SHRP_DARK := true
