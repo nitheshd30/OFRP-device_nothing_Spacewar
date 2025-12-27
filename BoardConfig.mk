@@ -202,3 +202,23 @@ SHRP_HAS_RECOVERY_PARTITION := fals
 # Use this flag only if your device is A/B or Virtual A/B.
 # Default (if not set): N/A
 SHRP_AB := true
+
+# Emergency DownLoad mode (0 = no EDL mode, 1 = EDL mode available)
+# Default (if not set): 0
+SHRP_EDL_MODE := 1
+
+# Internal storage path
+# Default (if not set): /sdcard
+SHRP_INTERNAL := /sdcard
+
+# External SDcard path
+# Default (if not set): /
+SHRP_EXTERNAL := /
+
+# USB OTG path
+# Default (if not set): /
+SHRP_OTG := /usb_otg
+
+# Flashlight: (0 = disable, 1 = enable)
+# Default (if not set): 0
+SHRP_FLASH := 1
