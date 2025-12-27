@@ -165,3 +165,40 @@ TW_CUSTOM_BATTERY_PATH := "/sys/class/power_supply/battery"
 # Vibrator
 TW_SUPPORT_INPUT_AIDL_HAPTICS := true
 TW_SKIP_ADDITIONAL_FSTAB := true
+
+################### ############################################
+# MANDATORY FLAGS # These flags HAVE TO be set/changed by you! #
+################### ############################################
+
+# Device codename
+# Default (if not set): N/A
+SHRP_DEVICE_CODE := Spacewar
+
+# Path of your SHRP device tree
+# Replace <device-brand> with the device brand name
+# (SHRP_DEVICE_CODE will expand to the above variable so check if that is correct)
+SHRP_PATH := device/nothing/$(SHRP_DEVICE_CODE)
+
+# Maintainer name
+# Default (if not set): N/A
+SHRP_MAINTAINER := Nithesh
+
+# Recovery Type (for "About" section only)
+# Default (if not set): N/A
+SHRP_REC_TYPE := Treble
+
+# Device Type (for "About" section only)
+# Default (if not set): N/A
+SHRP_DEVICE_TYPE := A/B
+
+# Your device's recovery path, dont use blindly
+# Default (if not set): N/A
+SHRP_REC := /dev/block/bootdevice/by-name/boot
+
+# Use this flag only if SHRP_REC is set
+# Default (if not set): N/A
+SHRP_HAS_RECOVERY_PARTITION := fals
+
+# Use this flag only if your device is A/B or Virtual A/B.
+# Default (if not set): N/A
+SHRP_AB := true
