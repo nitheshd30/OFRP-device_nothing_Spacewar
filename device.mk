@@ -128,3 +128,18 @@ PRODUCT_PACKAGES += \
 
 # VINTF
 PRODUCT_ENFORCE_VINTF_MANIFEST := true
+
+# Added Files For Moded OFRP
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH) \
+    #recovery/root/sbin/fix-gpt
+    #recovery/root/sbin/fix-gpt.except
+    #recovery/root/sbin/fixgpt
+    recovery/root/sbin/format
+    recovery/root/sbin/formatesp
+    recovery/root/sbin/formatwin
+    recovery/root/sbin/gdisk
+    recovery/root/sbin/msc
+    recovery/root/sbin/msc-off
+    recovery/root/sbin/parted
+    recovery/root/sbin/sgdisk
