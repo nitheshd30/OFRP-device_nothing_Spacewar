@@ -34,6 +34,8 @@ check_vendor_wrappedkey() {
 
     cp $VENDORDIR/etc/fstab.default $VENDORFSTAB;
     if [ ! -e $VENDORFSTAB ]; then
+        umount $VENDORDIR;
+        rmdir $VENDORDIR;
         return;
     fi
 
