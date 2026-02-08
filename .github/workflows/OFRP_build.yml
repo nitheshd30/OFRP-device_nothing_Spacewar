@@ -8,6 +8,10 @@ on:
         description: 'OFRP Manifest'
         required: true
         default: 'https://gitlab.com/OrangeFox/sync.git'
+        type: choice
+        options:
+          - https://gitlab.com/OrangeFox/sync.git
+          - https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git
       MANIFEST_BRANCH:
         description: 'OFRP Manifest Branch'
         required: true
@@ -16,6 +20,7 @@ on:
         options:
         - fox_12.1
         - fox_14.1
+        - twrp-12.1
       DEVICE_TREE:
         description: 'Custom Recovery Tree' # Your already made Device Tree for TWRP
         required: true
