@@ -1,4 +1,4 @@
-name: OrangeFox [OFRP] Builder - Script Method
+name: OrangeFox [OFRP]
 
 on:
   workflow_dispatch:
@@ -9,119 +9,161 @@ on:
         default: '12.1'
         type: choice
         options:
-        - '12.1'
-        - '11.0'
+        - 12.1
+        - 11.0
       DEVICE_TREE:
-        description: 'Device Tree URL'
+        description: 'Custom Recovery Tree'
         required: true
         default: 'https://github.com/nitheshd30/OFRP-device_nothing_Spacewar.git'
       DEVICE_TREE_BRANCH:
-        description: 'Device Tree Branch'
+        description: 'Custom Recovery Tree Branch (use master if default)'
         required: true
         default: 'master'
-      DEVICE_PATH:
-        description: 'Device Path'
-        required: true
-        default: 'device/nothing/Spacewar'
       DEVICE_NAME:
-        description: 'Device Codename'
+        description: 'Specify your Device Codename' # As is, just like your PRODUCT_DEVICE in your device tree.
         required: true
         default: 'Spacewar'
-      BUILD_TARGET:
-        description: 'Build Target'
+      DEVICE_PATH:
+        description: 'Specify your Device Path (Check the DEVICE_PATH in BoardConfig.mk)' # As is, just like your DEVICE_PATH in your BoardConfig.mk
         required: true
-        default: 'recovery'
+        default: 'device/nothing/Spacewar'
+      BUILD_TARGET:
+        description: 'Specify your Build Target' # The image suffix will be added later in build step.
+        required: true
+        default: 'boot'
         type: choice
         options:
-        - recovery
         - boot
-        - vendor_boot
+        - recovery
+        - vendorboot
+      LDCHECK:
+        description: 'Use LDCHECK'
+        required: false
+        default: 'false'
+        type: boolean
+      LDCHECKPATH:
+        description: 'Path of blobs to check' # Use it know what kind of dependencies your missing for decryption blobs.
+        required: true
+        default: 'system/bin/qseecomd'
 
 jobs:
   build:
-    name: Build OrangeFox by ${{ github.actor }}
-    runs-on: ubuntu-latest
+    name: Build OFRP by ${{ github.actor }}
+    runs-on: ubuntu-22.04
     if: github.event.repository.owner.id == github.event.sender.id
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ORANGEFOX_ROOT: ${{ github.workspace }}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+      OUTPUT_DIR: ${{ github.workspace }}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/out/target/product/${{ inputs.DEVICE_NAME }}
+
     permissions:
       contents: write
     steps:
-    - name: Check Out
-      uses: actions/checkout@v4
-
-    - name: Cleanup Space
+    - name: Checkout
+      uses: actions/checkout@v6
+              
+    - name: Clean-up
       uses: rokibhasansagar/slimhub_actions@main
 
-    - name: Prepare Environment
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install git aria2 python3 python-is-python3 git-lfs gnupg flex bison gperf build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
-
-    - name: Install OpenJDK 11
-      uses: actions/setup-java@v4
+    - name: Swap Space
+      uses: pierotofy/set-swap-space@master
       with:
-        distribution: 'zulu'
-        java-version: '11'
-
-    - name: Sync OrangeFox Sources (Script Method)
+        swap-size-gb: 12
+      
+    - name: Build Environment
       run: |
-        mkdir -p ~/OrangeFox_sync
-        cd ~/OrangeFox_sync
-        git clone https://gitlab.com/OrangeFox/sync.git
-        cd sync
-        
-        # Execute the sync script
-        # We set the path to ${{ github.workspace }}/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
-        ./orangefox_sync.sh --branch ${{ github.event.inputs.MANIFEST_BRANCH }} --path ${{ github.workspace }}/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+        sudo apt install aria2 -y
+        git clone https://gitlab.com/OrangeFox/misc/scripts.git
+        cd scripts
+        sudo bash setup/android_build_env.sh
 
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        max-size: "10G"
+      
+    - name: Set-up Manifest # For github workspace use single {}
+      run: |
+        mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
+        cd ${GITHUB_WORKSPACE}/OrangeFox
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+        git clone https://gitlab.com/OrangeFox/sync.git -b master
+        cd sync
+        ./orangefox_sync.sh --branch ${{ inputs.MANIFEST_BRANCH }} --path ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+      
     - name: Clone Device Tree
       run: |
-        # Navigate to the synced directory
-        cd ${{ github.workspace }}/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
-        
-        # Clone Device Tree
-        git clone ${{ github.event.inputs.DEVICE_TREE }} ./${{ github.event.inputs.DEVICE_PATH }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }}
+        cd ${{ env.ORANGEFOX_ROOT }}
+        git clone ${{ inputs.DEVICE_TREE }} -b ${{ inputs.DEVICE_TREE_BRANCH }} ./${{ inputs.DEVICE_PATH }}
+        cd ${{ inputs.DEVICE_PATH }}
+        echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
         # Clone Kernel/Vendor (Adjust if your tree has prebuilts)
         git clone https://github.com/Spacewar-dev/android_kernel_nothing_sm7325.git ./kernel/nothing/sm7325 -b 14.0
         git clone https://github.com/TheMuppets/proprietary_vendor_nothing_Spacewar.git ./vendor/nothing/Spacewar -b lineage-20
 
-    - name: Build OrangeFox
+    - name: Building OrangeFox
       run: |
-        cd ${{ github.workspace }}/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
-        
-        # Setup Environment
+        pushd ${{ env.ORANGEFOX_ROOT }}
         set +e
+        export USE_CCACHE=1
+        export CCACHE_EXEC=/usr/bin/ccache
+        sed -i 's/return sandboxConfig\.working/return false/g' build/soong/ui/build/sandbox_linux.go
         source build/envsetup.sh
-        set -e
-        
-        # Exports
         export ALLOW_MISSING_DEPENDENCIES=true
-        export FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER=1
-        export LC_ALL="C"
-        
-        # Lunch
-        lunch twrp_${{ github.event.inputs.DEVICE_NAME }}-eng
-        
-        # Build
-        mka adbd recoveryimage -j$(nproc --all)
+        set -e
+        lunch twrp_${{ inputs.DEVICE_NAME }}-eng && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
+        popd
 
-    - name: Set Release Properties
+    - name: Set Build Date # Build date in UTC
       run: |
-        echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
-        echo "FOX_BUILD_DIR=${{ github.workspace }}/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}" >> $GITHUB_ENV
+        echo "BUILD_DATE=$(TZ=UTC date +%Y%m%d)" >> $GITHUB_ENV
+
+    - name: Check if the recovery exists # It makes the recovery.img and renames it to Orangefox*.img but the OG should also work
+      if: always()
+      run: |
+        img_file=$(find "${{ env.OUTPUT_DIR }}" -name "${{ inputs.BUILD_TARGET }}*.img" -print -quit)
+        zip_file=$(find "${{ env.OUTPUT_DIR }}" -name "OrangeFox*.zip" -print -quit)
+        if [ -f "$img_file" ]; then
+            echo "CHECK_IMG_IS_OK=true" >> $GITHUB_ENV
+            echo "MD5_IMG=$(md5sum "$img_file" | cut -d ' ' -f 1)" >> $GITHUB_ENV
+        else
+            echo "Recovery out directory is empty."
+        fi
+        if [ -f "$zip_file" ]; then
+            echo "CHECK_ZIP_IS_OK=true" >> $GITHUB_ENV
+            echo "MD5_ZIP=$(md5sum "$zip_file" | cut -d ' ' -f 1)" >> $GITHUB_ENV
+        else
+            echo "::warning::The zip file isn't present but make sure the image is from only after 100% completion in build stage"
+        fi
 
     - name: Upload to Release
-      uses: softprops/action-gh-release@v1
+      if: env.CHECK_IMG_IS_OK == 'true'
+      uses: softprops/action-gh-release@master
       with:
         files: |
-          ${{ env.FOX_BUILD_DIR }}/OrangeFox*.zip
-          ${{ env.FOX_BUILD_DIR }}/recovery.img
-          ${{ env.FOX_BUILD_DIR }}/boot.img
-        name: OrangeFox ${{ github.event.inputs.DEVICE_NAME }} - ${{ env.BUILD_DATE }}
+          ${{ env.OUTPUT_DIR }}/OrangeFox*.img
+          ${{ env.OUTPUT_DIR }}/OrangeFox*.tar
+          ${{ env.OUTPUT_DIR }}/OrangeFox*.zip
+          ${{ env.OUTPUT_DIR }}/ramdisk-recovery.*
+        name: Unofficial OrangeFox for ${{ inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
         tag_name: ${{ github.run_id }}
         body: |
-          **Build Info**
-          * Manifest: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          * Device: [Tree](${{ github.event.inputs.DEVICE_TREE }}/tree/${{ github.event.inputs.DEVICE_TREE_BRANCH }})
+          Build: ${{ inputs.MANIFEST_BRANCH }}
+          Device: [Device Tree/Branch](${{ inputs.DEVICE_TREE }}/tree/${{ inputs.DEVICE_TREE_BRANCH }})
+          Commit: Most recent [commit](${{ inputs.DEVICE_TREE }}/commit/${{ env.COMMIT_ID }}) during building.
+          MD5 (img): ${{ env.MD5_IMG }}
+          MD5 (zip): ${{ env.MD5_ZIP }}
+        prerelease: true
+
+    - name: Run LDCheck
+      if: inputs.LDCHECK == 'true'
+      run: |
+        cd tools
+        mv -n libneeds ${GITHUB_WORKSPACE}/${{ env.OUTPUT_DIR }}/${{ inputs.DEVICE_NAME }}/recovery/root/
+        mv -n ldcheck ${GITHUB_WORKSPACE}/${{ env.OUTPUT_DIR }}/${{ inputs.DEVICE_NAME }}/recovery/root/
+        cd ${GITHUB_WORKSPACE}/${{ env.OUTPUT_DIR }}/${{ inputs.DEVICE_NAME }}/recovery/root
+        python3 ldcheck -p system/lib64:vendor/lib64:system/lib:vendor/lib -d ${{ inputs.LDCHECKPATH }}
+        echo "Done checking missing dependencies. Review, and reconfigure your tree."
+      continue-on-error: true
