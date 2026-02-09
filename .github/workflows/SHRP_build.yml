@@ -23,6 +23,10 @@ on:
         description: 'Custom Recovery Tree Branch' # Your Device Tree Branch, make sure it's right.
         required: true
         default: 'SHRP'
+        type: choice
+        options:
+          - SHRP
+          - master
       DEVICE_PATH:
         description: 'Specify your Device Path' # As is, just like your DEVICE_PATH in your BoardConfig.mk
         required: true
