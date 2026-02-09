@@ -100,6 +100,7 @@ jobs:
         echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
         # Clone Kernel/Vendor (Adjust if your tree has prebuilts)
+        cd ${{ env.ORANGEFOX_ROOT }}
         git clone https://github.com/Spacewar-dev/android_kernel_nothing_sm7325.git ./kernel/nothing/sm7325 -b 14.0
         git clone https://github.com/TheMuppets/proprietary_vendor_nothing_Spacewar.git ./vendor/nothing/Spacewar -b lineage-20
 
