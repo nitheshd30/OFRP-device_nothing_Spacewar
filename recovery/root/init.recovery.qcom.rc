@@ -19,6 +19,10 @@ on fs
     symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
     mkdir /firmware
     mount vfat /dev/block/bootdevice/by-name/modem${ro.boot.slot_suffix} /firmware ro context=u:object_r:firmware_file:s0
+    chmod 0755 /sbin/format
+    chmod 0755 /sbin/parted
+    chmod 0755 /sbin/msc
+    chmod 0755 /sbin/sgdisk
 
 on late-fs
     start keymasterd
